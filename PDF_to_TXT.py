@@ -4,7 +4,7 @@ import os
 import json
 from langchain.schema import Document
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.embeddings import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from langchain.vectorstores import ElasticsearchStore
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
@@ -14,7 +14,7 @@ def extract_text(pdf_path): # PDF 텍스트 추출
 
 def extract_sections_from_text(text): # 목차 기반 섹션 분할
     # 상위 섹션: 예) 1) General Principles
-    top_section_pattern = r"\n?(\d+)\)\s+([A-Z][^\n]+)"  # ex: 4) LICENCES
+    top_section_pattern = r"(?m)^(?:\s*)?(\d+)\)\s+([A-Z][^\n]+)"  # ex: 4) LICENCES
     top_sections = list(re.finditer(top_section_pattern, text))
 
     result = []
@@ -28,7 +28,7 @@ def extract_sections_from_text(text): # 목차 기반 섹션 분할
         section_text = text[start:end]
 
         # 하위 조항 분리: ex. 4.1, 4.2, ...
-        clause_pattern = rf"\n?({section_num}\.\d+)\s"
+        clause_pattern = rf"(?m)^\s*({section_num}\.\d+)\s+([^\n]+)?"
         clause_matches = list(re.finditer(clause_pattern, section_text))
 
         if clause_matches:
