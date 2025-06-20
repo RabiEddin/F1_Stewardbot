@@ -37,7 +37,7 @@ def extract_sections_from_text(text): # 목차 기반 섹션 분할
                 clause_start = clause.end()
                 clause_end = clause_matches[j + 1].start() if j + 1 < len(clause_matches) else len(section_text)
 
-                content = section_text[clause_start-1:clause_end].strip() # -1인유 패턴에 첫번쨰 대문자가 들어가 있어 -1로 조정
+                content = section_text[clause_start-1:clause_end].strip() # -1인 패턴에 첫번쨰 대문자가 들어가 있어 -1로 조정
 
                 result.append({
                     "section": section_num,
