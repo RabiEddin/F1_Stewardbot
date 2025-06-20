@@ -28,7 +28,7 @@ def extract_sections_from_text(text): # 목차 기반 섹션 분할
         section_text = text[start:end]
 
         # 하위 조항 분리: ex. 4.1, 4.2, ...
-        clause_pattern = rf"(?m)^\s*({section_num}\.\d+)(?:\s+([^\n]+))?"
+        clause_pattern = rf"(?m)^\s*({section_num}\.\d+)\s+[A-Z]" # 4.1 + 대문자로 시작하는 경우만 패턴으로 인식
         clause_matches = list(re.finditer(clause_pattern, section_text))
 
         if clause_matches:
@@ -37,7 +37,7 @@ def extract_sections_from_text(text): # 목차 기반 섹션 분할
                 clause_start = clause.end()
                 clause_end = clause_matches[j + 1].start() if j + 1 < len(clause_matches) else len(section_text)
 
-                content = section_text[clause_start:clause_end].strip()
+                content = section_text[clause_start-1:clause_end].strip() # -1인유 패턴에 첫번쨰 대문자가 들어가 있어 -1로 조정
 
                 result.append({
                     "section": section_num,
