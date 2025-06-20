@@ -28,7 +28,7 @@ def extract_sections_from_text(text): # 목차 기반 섹션 분할
         section_text = text[start:end]
 
         # 하위 조항 분리: ex. 4.1, 4.2, ...
-        clause_pattern = rf"(?m)^\s*({section_num}\.\d+)\s+([^\n]+)?"
+        clause_pattern = rf"(?m)^\s*({section_num}\.\d+)(?:\s+([^\n]+))?"
         clause_matches = list(re.finditer(clause_pattern, section_text))
 
         if clause_matches:
