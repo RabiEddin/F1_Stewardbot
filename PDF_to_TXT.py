@@ -102,6 +102,7 @@ def store_to_opensearch(documents): # Elasticsarch에 저장
         verify_certs=False,
         ssl_show_warn=False,
         connection_class=RequestsHttpConnection,
+        timeout=60 # 업로드 안되는 이유: 기본 디폴트 timeout이 짧게 되어 있어서 -> 해결: timeout 늘림
     )
 
     print("문서 벡터 저장 중...")
