@@ -1,12 +1,22 @@
+import certifi
 import fitz
 import re
 import os
 import json
+from dotenv import load_dotenv
 from langchain.schema import Document
-from langchain.embeddings import OpenAIEmbeddings
 from langchain_ollama import OllamaEmbeddings
-from langchain.vectorstores import ElasticsearchStore
+from langchain_openai import OpenAIEmbeddings
+from opensearchpy import OpenSearch, RequestsHttpConnection
+from langchain_community.vectorstores import OpenSearchVectorSearch
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+load_dotenv()
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENSEARCH_URL = os.getenv("OPENSEARCH_URL")
+OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME")
+OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
 
 def extract_text(pdf_path): # PDF 텍스트 추출
     doc = fitz.open(pdf_path)
@@ -56,8 +66,6 @@ def extract_sections_from_text(text): # 목차 기반 섹션 분할
 
     return result
 
-# def seperate_chunck_from_test(text): # 보류: 일반적인 청크 사이즈로 나누기
-
 def create_documents(sections): # LangChain Document 생성
     return [
         Document(
@@ -67,15 +75,47 @@ def create_documents(sections): # LangChain Document 생성
         for sec in sections
     ]
 
-def store_to_elasticsearch(documents): # Elasticsarch에 저장
-    embeddings = OllamaEmbeddings(model="llama3.1")
-    es_store = ElasticsearchStore.from_documents(
-        documents,
-        embedding=embeddings,
-        es_url=os.getenv("ELASTICSEARCH_URL"),
-        index_name="f1_rules"
+def store_to_opensearch(documents): # Elasticsarch에 저장
+    embeddings = OpenAIEmbeddings()
+    index_name = "f1_rules"
+
+    # OpenSearch 클라이언트 구성
+    opensearch_client = OpenSearch(
+        hosts=[{"host": OPENSEARCH_URL, "port": 443}],
+        http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
+        use_ssl=True,
+        verify_certs=False,
+        ssl_show_warn=False,
+        connection_class=RequestsHttpConnection
     )
-    return es_store
+
+    print("OpenSearch 연결 테스트 중...")
+    print(opensearch_client.info())
+
+    print("벡터 스토어 연결 중...")
+    vector_store = OpenSearchVectorSearch(
+        index_name=index_name,
+        embedding_function=embeddings,
+        opensearch_url=OPENSEARCH_URL+":443",
+        http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
+        use_ssl=True,
+        verify_certs=False,
+        ssl_show_warn=False,
+        connection_class=RequestsHttpConnection,
+    )
+
+    print("문서 벡터 저장 중...")
+    vector_store.add_documents(documents)
+
+    # vector_store = OpenSearchVectorSearch.from_documents(
+    #     documents=documents,
+    #     embedding=embeddings,
+    #     opensearch_client=opensearch_client,
+    #     index_name=index_name,
+    #     engine="faiss"
+    # )
+
+    return vector_store
 
 if __name__ == "__main__":
     pdf_path = "F1_Rulebook_ver20250619/FIA 2025 Formula 1 Sporting Regulations - Issue 5 - 2025-04-30.pdf"
@@ -94,7 +134,7 @@ if __name__ == "__main__":
     print("문서 → LangChain Document 변환 중...")
     documents = create_documents(sections)
 
-    print("Elasticsearch에 저장 중...")
-    store_to_elasticsearch(documents)
+    print("Opensearch에 저장 중...")
+    store_to_opensearch(documents)
 
     print("저장 완료!")
