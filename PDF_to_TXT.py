@@ -70,12 +70,17 @@ def create_documents(sections): # LangChain Document 생성
     return [
         Document(
             page_content=sec["content"],
-            metadata={"section": sec["section"], "sub_section": sec["sub_section"], "title": sec["title"]}
+            metadata={
+                "section": sec["section"],
+                "sub_section": sec["sub_section"],
+                "title": sec["title"],
+                "vector_field": "description_vector"  # 추가된 부분
+            }
         )
         for sec in sections
     ]
 
-def store_to_opensearch(documents): # Elasticsarch에 저장
+def store_to_opensearch(documents): # Opensearch에 저장
     embeddings = OpenAIEmbeddings()
     index_name = "f1_rules"
 
