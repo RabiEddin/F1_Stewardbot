@@ -34,7 +34,7 @@ def connect_to_vectorstore():
     return vector_store
 
 
-def search_related_rules(user_input, vector_store, k=3):
+def search_related_rules(user_input, vector_store, k=5):
     results = vector_store.similarity_search(user_input, k=k)
     return results
 
@@ -43,7 +43,7 @@ def build_reasoning_chain():
     prompt_template = PromptTemplate(
         input_variables=["context", "question"],
         template="""
-You are an F1 regulations expert. Given the rule context below, and a situation described by the user, explain whether a rule violation occurred and why.
+You are an F1 regulations expert. Given the rule context below, and a situation described by the user, explain whether a rule violation occurred and why. And answer in the language of the question.
 
 RULE CONTEXT:
 {context}
@@ -54,7 +54,7 @@ SITUATION:
 EXPERT ANALYSIS:
 """
     )
-    llm = ChatOpenAI(model="gpt-4o", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     chain = LLMChain(llm=llm, prompt=prompt_template)
     return chain
 
@@ -69,6 +69,6 @@ def run_rag_pipeline(user_input):
     return result
 
 
-situation = "막스 베르스타펜이 코너 진입할 떄 조지 러셀의 차량을 추월 하려다가 접촉했어. 패널티가 몆 초정도 나올 수 있을까?"
+situation = "랜도 노리스가 점프 스타트를 했어. 패널티가 어떻게 나올까?"
 answer = run_rag_pipeline(situation)
 print("LLM 분석 결과:\n", answer)
