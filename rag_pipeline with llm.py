@@ -69,6 +69,6 @@ def run_rag_pipeline(user_input):
     return result
 
 
-situation = "랜도 노리스가 점프 스타트를 했어. 패널티가 어떻게 나올까?"
+situation = input("Enter your situation: ")
 answer = run_rag_pipeline(situation)
 print("LLM 분석 결과:\n", answer)
