@@ -11,10 +11,11 @@ load_dotenv()
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def extract_frames_from_video(video_path, fps=1, max_frames=10):
+
+def extract_frames_from_video(video_path, fps=2, max_frames=20):
     cap = cv2.VideoCapture(video_path)
-    frame_rate = cap.get(cv2.CAP_PROP_FPS) # 영상 프레임 추출
-    interval = int(frame_rate / fps) # 몇 프레임 단위로 캡처할지
+    frame_rate = cap.get(cv2.CAP_PROP_FPS)  # 영상 프레임 추출
+    interval = int(frame_rate / fps)  # 몇 프레임 단위로 캡처할지
     frames = []
     frame_count = 0
 
@@ -35,30 +36,28 @@ def extract_frames_from_video(video_path, fps=1, max_frames=10):
     return frames
 
 
-def describe_frame_b64(frames):
+def describe_frame_b64(frames, prompt_file_path):
+    with open(prompt_file_path, 'r', encoding='utf-8') as pf:
+        prompt_text = pf.read().strip()
+
+    vision_input = [
+                       {"type": "text",
+                        "text": prompt_text + "\ndate:" + input("date: ") + "Race country: " + input("Race country: ")}
+                   ] + [
+                       {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+                       for img_b64 in frames
+                   ]
+
     response = client.chat.completions.create(
         model="gpt-4o-mini",
-        messages=[
-            {"role": "user", "content": [
-                {"type": "text", "text": "You are an F1 expert at the level of the FIA and you are acting as a "
-                                         "steward responsible for reviewing potential infractions using image frames "
-                                         "extracted from race footage. First, identify which track this is based on "
-                                         "the image. Then, analyze what situation is unfolding in this specific "
-                                         "frame. Determine which car has the racing line or right of way, "
-                                         "and which car is potentially at fault. Be specific and detailed in "
-                                         "describing the issue or potential rule violation, including how you reached "
-                                         "your conclusion. Use technical terminology where appropriate and maintain a "
-                                         "formal, professional tone in your analysis."},
-                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}" for img_b64 in frames}}
-            ]}
-        ]
+        messages=[{"role": "user", "content": vision_input}]
     )
     return response.choices[0].message.content
 
 
 def build_situation_from_video(video_path):
     frames = extract_frames_from_video(video_path)
-    descriptions = describe_frame_b64(frames)
+    descriptions = describe_frame_b64(frames, "situation_description.txt")
     return descriptions
 
 
