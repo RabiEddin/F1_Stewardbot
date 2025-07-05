@@ -43,8 +43,9 @@ def search_related_rules(user_input, vector_store, k=5):
 def build_reasoning_chain():
     prompt_template = PromptTemplate(
         input_variables=["context", "question"],
-        template="""
-You are an F1 regulations expert. Given the rule context below, and a situation described by the user, explain whether a rule violation occurred and why. And answer in the language of the question.
+        template="""You are an F1 regulations expert. Given the rule context below, and the situation described by 
+        the user (which is the only information provided), tell me what penalty should be given. If there is no 
+        penalty, say so. And answer in korean.
 
 RULE CONTEXT:
 {context}
@@ -70,6 +71,6 @@ def run_rag_pipeline(user_input):
     return result
 
 
-situation = "다음 상황 설명을 보고 어떤 조치가 나올지 판단해줘.\n" + get_situation_from_video("VER_penalty-10sec.mp4")
+situation = get_situation_from_video("VER_penalty 3.mp4")
 answer = run_rag_pipeline(situation)
 print("LLM 분석 결과:\n", answer)
