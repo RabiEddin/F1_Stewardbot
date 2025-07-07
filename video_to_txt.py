@@ -57,7 +57,7 @@ def describe_frame_b64(frames, prompt_file_path):
 
 def build_situation_from_video(video_path):
     frames = extract_frames_from_video(video_path)
-    descriptions = describe_frame_b64(frames, "situation_description.txt")
+    descriptions = describe_frame_b64(frames, "txt files/situation_description.txt")
     return descriptions
 
 
@@ -66,5 +66,5 @@ def get_situation_from_video(video_path):
 
 
 if __name__ == "__main__":
-    situation = get_situation_from_video("VER_penalty-10sec.mp4")
+    situation = get_situation_from_video("VER_penalty 3.mp4")
     print(situation)
