@@ -41,20 +41,13 @@ def search_related_rules(user_input, vector_store, k=5):
 
 
 def build_reasoning_chain():
+    prompt_file_path = "txt files/Examples.txt"
+    with open(prompt_file_path, 'r', encoding='utf-8') as f:
+        prompt_str = f.read()
+
     prompt_template = PromptTemplate(
         input_variables=["context", "question"],
-        template="""You are an F1 regulations expert. Given the rule context below, and the situation described by 
-        the user (which is the only information provided), tell me what penalty should be given. If there is no 
-        penalty, say so. And answer in korean.
-
-RULE CONTEXT:
-{context}
-
-SITUATION:
-{question}
-
-EXPERT ANALYSIS:
-"""
+        template=prompt_str
     )
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     chain = LLMChain(llm=llm, prompt=prompt_template)
@@ -71,6 +64,6 @@ def run_rag_pipeline(user_input):
     return result
 
 
-situation = get_situation_from_video("VER_penalty 3.mp4")
+situation = get_situation_from_video("VER_penalty-10sec.mp4")
 answer = run_rag_pipeline(situation)
 print("LLM 분석 결과:\n", answer)
