@@ -43,7 +43,7 @@ def build_reasoning_chain():
     prompt_template = PromptTemplate(
         input_variables=["context", "question"],
         template="""
-You are an F1 regulations expert. Given the rule context below, and a situation described by the user, explain whether a rule violation occurred and why. And answer in the language of the question.
+You are an F1 Steward (regulations expert). Given the rule context below, and a situation described by the user, explain whether a rule violation occurred and why. And answer in the language of the question.
 
 RULE CONTEXT:
 {context}
