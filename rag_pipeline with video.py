@@ -7,6 +7,7 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.globals import set_verbose
+from video_to_txt import get_situation_from_video
 
 set_verbose(True)
 load_dotenv()
@@ -40,19 +41,13 @@ def search_related_rules(user_input, vector_store, k=5):
 
 
 def build_reasoning_chain():
+    prompt_file_path = "txt files/Examples.txt"
+    with open(prompt_file_path, 'r', encoding='utf-8') as f:
+        prompt_str = f.read()
+
     prompt_template = PromptTemplate(
         input_variables=["context", "question"],
-        template="""
-You are an F1 Steward (regulations expert). Given the rule context below, and a situation described by the user, explain whether a rule violation occurred and why. And answer in the language of the question.
-
-RULE CONTEXT:
-{context}
-
-SITUATION:
-{question}
-
-EXPERT ANALYSIS:
-"""
+        template=prompt_str
     )
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     chain = LLMChain(llm=llm, prompt=prompt_template)
@@ -69,6 +64,6 @@ def run_rag_pipeline(user_input):
     return result
 
 
-situation = input("Enter your situation: ")
+situation = get_situation_from_video("VER_penalty-10sec.mp4")
 answer = run_rag_pipeline(situation)
 print("LLM 분석 결과:\n", answer)
