@@ -64,6 +64,6 @@ def run_rag_pipeline(user_input):
     return result
 
 
-situation = get_situation_from_video("VER_penalty-10sec.mp4")
+situation = get_situation_from_video("race video/VER_penalty-10sec.mp4")
 answer = run_rag_pipeline(situation)
 print("LLM 분석 결과:\n", answer)
