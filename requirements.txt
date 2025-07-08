@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+langchain-openai
+langchain-community
+opensearch-py
+python-dotenv
+opencv-python
+Pillow
+fastapi-limiter
+redis
