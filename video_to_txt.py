@@ -66,5 +66,5 @@ def get_situation_from_video(video_path):
 
 
 if __name__ == "__main__":
-    situation = get_situation_from_video("VER_penalty 3.mp4")
+    situation = get_situation_from_video("race video/VER_penalty 3.mp4")
     print(situation)
