@@ -100,6 +100,8 @@
                     tab.classList.add('disabled');
                 }
             });
+            document.getElementById('analyzeButton').disabled = !enable;
+            document.getElementById('analyzeVideoButton').disabled = !enable;
         }
 
         // Reset UI when switching tabs
