@@ -23,14 +23,14 @@
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container"> <!-- Main container for the content -->
         <div class="d-flex justify-content-end mb-3">
             <a href="/logout" class="btn btn-secondary">Logout</a>
         </div>
-        <h1 class="mb-4 text-center">F1 Stewardbot</h1>
+        <h1 class="mb-4 text-center">F1 Stewardbot</h1> <!-- Main title of the page -->
         <p class="text-center">Enter a race situation or upload a video to get an expert analysis based on F1 regulations.</p>
 
-        <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <ul class="nav nav-tabs" id="myTab" role="tablist"> <!-- Navigation tabs for text and video analysis -->
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-analysis" type="button" role="tab" aria-controls="text-analysis" aria-selected="true">Text Analysis</button>
             </li>
@@ -38,9 +38,9 @@
                 <button class="nav-link" id="video-tab" data-bs-toggle="tab" data-bs-target="#video-analysis" type="button" role="tab" aria-controls="video-analysis" aria-selected="false">Video Analysis</button>
             </li>
         </ul>
-        <div class="tab-content" id="myTabContent">
+        <div class="tab-content" id="myTabContent"> <!-- Content for each tab -->
             <div class="tab-pane fade show active" id="text-analysis" role="tabpanel" aria-labelledby="text-tab">
-                <div class="mb-3 mt-3">
+                <div class="mb-3 mt-3"> <!-- 공백 주는거 mb-3 mt-3 -->
                     <label for="situationInput" class="form-label">Race Situation Description:</label>
                     <textarea class="form-control" id="situationInput" rows="6" placeholder="e.g., 'A car crossed the white line at pit entry during the safety car period.'"></textarea>
                 </div>
@@ -84,7 +84,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Function to hide all alerts and results
-        function resetUI() {
+        function resetUI() { // 결과/에러/로딩 메시지 초기화, document 객체 = 웹 페이지 그 자체
             document.getElementById('resultCard').style.display = 'none';
             document.getElementById('errorAlert').style.display = 'none';
             document.getElementById('loadingAlert').style.display = 'none';
@@ -92,7 +92,7 @@
             document.getElementById('errorMessage').textContent = '';
         }
 
-        function toggleTabs(enable) {
+        function toggleTabs(enable) { // Enable or disable the tabs and buttons
             document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tab => {
                 if (enable) {
                     tab.classList.remove('disabled');
@@ -105,6 +105,8 @@
         }
 
         // Reset UI when switching tabs
+        // =>: 화살표 함수, function(){} 대신 사용
+        // shown.bs.tab: 부트스트랩 이벤트, 탭이 활성화될 때 발생
         document.querySelectorAll('button[data-bs-toggle="tab"]').forEach(tabElm => {
             tabElm.addEventListener('shown.bs.tab', event => {
                 resetUI();
@@ -116,7 +118,7 @@
             resetUI();
             const situation = document.getElementById('situationInput').value;
 
-            if (!situation.trim()) {
+            if (!situation.trim()) { //.trim(): 문자열 앞뒤 공백 제거
                 document.getElementById('errorMessage').textContent = 'Please enter a race situation.';
                 document.getElementById('errorAlert').style.display = 'block';
                 return;
@@ -125,15 +127,16 @@
             toggleTabs(false);
             const loadingAlert = document.getElementById('loadingAlert');
             loadingAlert.textContent = 'Analyzing situation...';
-            loadingAlert.style.display = 'block';
+            loadingAlert.style.display = 'block'
 
+            // Fetch API를 사용하여 서버에 POST 요청을 보냄
             try {
                 const response = await fetch('/predict', {
-                    method: 'POST',
-                    headers: {
+                    method: 'POST', // 서버에 데이터를 보내는 POST 요청
+                    headers: { // json 형식으로 보내기 위해 헤더 설정
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ situation: situation })
+                    body: JSON.stringify({ situation: situation }) // 상황 설명을 JSON 형식으로 변환하여 요청 본문에 포함
                 });
 
                 document.getElementById('loadingAlert').style.display = 'none';

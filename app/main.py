@@ -45,6 +45,7 @@ app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 # Static files setup
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
+
 # Load users from a JSON file
 def load_users():
     if not os.path.exists('users.json'):
@@ -52,7 +53,8 @@ def load_users():
     with open('users.json', 'r') as f:
         return json.load(f)
 
-@app.on_event("startup")
+
+@app.on_event("startup") # Initialize FastAPILimiter with Redis on startup
 async def startup():
     redis = aioredis.from_url("redis://localhost:6379", encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(redis)
@@ -91,10 +93,10 @@ async def login(user: User, request: Request):
     return JSONResponse(status_code=401, content={"message": "Invalid credentials"})
 
 
-@app.get("/logout")
+@app.get("/logout")  # http get 방식으로 아래 logout 함수를 호출하면 세션에서 user를 제거하고 로그인 페이지로 리다이렉트합니다.
 async def logout(request: Request):
-    request.session.pop('user', None)
-    return RedirectResponse(url="/login")
+    request.session.pop('user', None)  # 세션에서 'user' 키를 제거합니다.
+    return RedirectResponse(url="/login")  # 로그인 페이지로 리다이렉트합니다.
 
 
 class SituationRequest(BaseModel):
@@ -200,9 +202,9 @@ def build_situation_from_video(video_path, date, race_country):
     return descriptions
 
 
-@app.post("/predict", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
+@app.post("/predict", dependencies=[Depends(RateLimiter(times=5, seconds=60))]) # Rate limiting to 5 requests per minute
 async def predict_violation(request: Request, situation_request: SituationRequest):
-    if not request.session.get('user'):
+    if not request.session.get('user'): # Check if user is authenticated, raise 예외 발생
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         analysis_result = run_rag_pipeline(situation_request.situation)
