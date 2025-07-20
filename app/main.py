@@ -94,11 +94,11 @@ async def google_login():
     """ Redirects to Google OAuth2 login page
     """
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
-    authrorization_url = await google_client.get_authorization_url(
+    authorization_url = await google_client.get_authorization_url(
         redirect_uri,
         scope=["openid", "email", "profile"],  # Specify the scopes you need
     )
-    return RedirectResponse(url=authrorization_url)
+    return RedirectResponse(url=authorization_url)
 
 
 @app.get("/auth/google")
