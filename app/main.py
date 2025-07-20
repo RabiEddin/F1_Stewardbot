@@ -26,6 +26,8 @@ from fastapi_limiter.depends import RateLimiter
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from redis import asyncio as aioredis
 
+from httpx_oauth.clients.google import GoogleOAuth2
+
 set_verbose(True)
 load_dotenv()
 
@@ -35,6 +37,14 @@ OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME")
 OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
 
 app = FastAPI()
+
+# Google OAuth2 client setup
+google_clinet = GoogleOAuth2(
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    redirect_uri=os.getenv("GOOGLE_REDIRECT_URI"),
+    name="google",
+)
 
 # Password Hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -78,6 +88,34 @@ async def login_page():
     with open("app/static/login.html", "r") as f:
         return HTMLResponse(content=f.read())
 
+
+@app.get("/auth/login/google")
+async def google_login():
+    """ Redirects to Google OAuth2 login page
+    """
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+    authrorization_url = await google_clinet.get_authorization_url(
+        redirect_uri,
+        scope=["email", "profile"], # Specify the scopes you need
+    )
+    return RedirectResponse(url=authrorization_url)
+
+
+@app.get("/auth/callback/google")
+async def google_callback(request: Request, code: str):
+    """ Handles the callback from Google OAuth2 and logs in the user
+    """
+    try:
+        token = await google_clinet.get_access_token(code, os.getenv("GOOGLE_REDIRECT_URI"))
+        user_info = await google_clinet.get_user_info(token)
+
+        # Here you can implement your logic to create or update the user in your database
+        request.session['user'] = user_info['email']
+
+    except Exception as e:
+        return RedirectResponse(url="/login?error=auth_failed")
+
+    return RedirectResponse(url="/")  # Redirect to the home page after successful login
 
 class User(BaseModel):
     username: str
