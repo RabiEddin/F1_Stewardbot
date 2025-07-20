@@ -39,10 +39,9 @@ OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
 app = FastAPI()
 
 # Google OAuth2 client setup
-google_clinet = GoogleOAuth2(
+google_client = GoogleOAuth2(
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-    redirect_uri=os.getenv("GOOGLE_REDIRECT_URI"),
     name="google",
 )
 
@@ -64,7 +63,7 @@ def load_users():
         return json.load(f)
 
 
-@app.on_event("startup") # Initialize FastAPILimiter with Redis on startup
+@app.on_event("startup")  # Initialize FastAPILimiter with Redis on startup
 async def startup():
     redis = aioredis.from_url("redis://localhost:6379", encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(redis)
@@ -94,28 +93,30 @@ async def google_login():
     """ Redirects to Google OAuth2 login page
     """
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
-    authrorization_url = await google_clinet.get_authorization_url(
+    authrorization_url = await google_client.get_authorization_url(
         redirect_uri,
-        scope=["email", "profile"], # Specify the scopes you need
+        scope=["openid", "email", "profile"],  # Specify the scopes you need
     )
     return RedirectResponse(url=authrorization_url)
 
 
-@app.get("/auth/callback/google")
+@app.get("/auth/google")
 async def google_callback(request: Request, code: str):
     """ Handles the callback from Google OAuth2 and logs in the user
     """
     try:
-        token = await google_clinet.get_access_token(code, os.getenv("GOOGLE_REDIRECT_URI"))
-        user_info = await google_clinet.get_user_info(token)
+        token = await google_client.get_access_token(code, os.getenv("GOOGLE_REDIRECT_URI"))
+        user_info = await google_client.get_id_email(token)
 
         # Here you can implement your logic to create or update the user in your database
-        request.session['user'] = user_info['email']
+        request.session['user'] = user_info  # Store the user's email in the session
 
     except Exception as e:
-        return RedirectResponse(url="/login?error=auth_failed")
+        print(e)
+        return RedirectResponse(url="/login")
 
     return RedirectResponse(url="/")  # Redirect to the home page after successful login
+
 
 class User(BaseModel):
     username: str
@@ -240,9 +241,10 @@ def build_situation_from_video(video_path, date, race_country):
     return descriptions
 
 
-@app.post("/predict", dependencies=[Depends(RateLimiter(times=5, seconds=60))]) # Rate limiting to 5 requests per minute
+@app.post("/predict",
+          dependencies=[Depends(RateLimiter(times=5, seconds=60))])  # Rate limiting to 5 requests per minute
 async def predict_violation(request: Request, situation_request: SituationRequest):
-    if not request.session.get('user'): # Check if user is authenticated, raise 예외 발생
+    if not request.session.get('user'):  # Check if user is authenticated, raise 예외 발생
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         analysis_result = run_rag_pipeline(situation_request.situation)
