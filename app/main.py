@@ -27,6 +27,7 @@ from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from redis import asyncio as aioredis
 
 from httpx_oauth.clients.google import GoogleOAuth2
+import httpx
 
 set_verbose(True)
 load_dotenv()
@@ -106,7 +107,13 @@ async def google_callback(request: Request, code: str):
     """
     try:
         token = await google_client.get_access_token(code, os.getenv("GOOGLE_REDIRECT_URI"))
-        user_info = await google_client.get_id_email(token)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {token['access_token']}"}
+            )
+            response.raise_for_status()
+            user_info = response.json()
 
         # Here you can implement your logic to create or update the user in your database
         request.session['user'] = user_info  # Store the user's email in the session
