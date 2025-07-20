@@ -36,13 +36,18 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENSEARCH_URL = "search-f1--stewardbot-vk5ukbpmlhss2ef3jgnwwervla.us-east-2.es.amazonaws.com"
 OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME")
 OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+
+if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    raise RuntimeError("Environment variables GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set.")
 
 app = FastAPI()
 
 # Google OAuth2 client setup
 google_client = GoogleOAuth2(
-    client_id=os.getenv("GOOGLE_CLIENT_ID"),
-    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
     name="google",
 )
 
