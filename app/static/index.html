@@ -169,7 +169,7 @@
             if (!userInfo) return;
 
             try {
-                const response = await fetch('/user_info'); // 서버에서 사용자 정보를 가져옴
+                const response = await fetch('/user_info'); // Fetch user information from the server
                 if (response.ok) {
                     const data = await response.json();
                     let userInfoHtml = '';
