@@ -150,6 +150,25 @@ async def logout(request: Request):
     return RedirectResponse(url="/login")  # 로그인 페이지로 리다이렉트합니다.
 
 
+@app.get("/userinfo")
+async def user_info(request: Request):
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Google user info and normal user info
+    # Google user info is stored in the session as a dictionary
+    # normal user info is stored as a string (username)
+    if isinstance(user, dict): # isinstance check to determine if user is a dictionary (Google user info)
+        user_info = {
+            "email": user.get("email"),
+            "name": user.get("name"),
+            "picture": user.get("picture")
+        }
+    else:
+        user_info = {"username": user}
+    return JSONResponse(content=user_info)
+
 class SituationRequest(BaseModel):
     situation: str
 
