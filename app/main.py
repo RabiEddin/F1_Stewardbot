@@ -26,6 +26,9 @@ from fastapi_limiter.depends import RateLimiter
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from redis import asyncio as aioredis
 
+from httpx_oauth.clients.google import GoogleOAuth2
+import httpx
+
 set_verbose(True)
 load_dotenv()
 
@@ -33,8 +36,20 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENSEARCH_URL = "search-f1--stewardbot-vk5ukbpmlhss2ef3jgnwwervla.us-east-2.es.amazonaws.com"
 OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME")
 OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+
+if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    raise RuntimeError("Environment variables GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set.")
 
 app = FastAPI()
+
+# Google OAuth2 client setup
+google_client = GoogleOAuth2(
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
+    name="google",
+)
 
 # Password Hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -54,7 +69,7 @@ def load_users():
         return json.load(f)
 
 
-@app.on_event("startup") # Initialize FastAPILimiter with Redis on startup
+@app.on_event("startup")  # Initialize FastAPILimiter with Redis on startup
 async def startup():
     redis = aioredis.from_url("redis://localhost:6379", encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(redis)
@@ -77,6 +92,42 @@ async def read_root(request: Request):
 async def login_page():
     with open("app/static/login.html", "r") as f:
         return HTMLResponse(content=f.read())
+
+
+@app.get("/auth/login/google")
+async def google_login():
+    """ Redirects to Google OAuth2 login page
+    """
+    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+    authorization_url = await google_client.get_authorization_url(
+        redirect_uri,
+        scope=["openid", "email", "profile"],  # Specify the scopes you need
+    )
+    return RedirectResponse(url=authorization_url)
+
+
+@app.get("/auth/google")
+async def google_callback(request: Request, code: str):
+    """ Handles the callback from Google OAuth2 and logs in the user
+    """
+    try:
+        token = await google_client.get_access_token(code, os.getenv("GOOGLE_REDIRECT_URI"))
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {token['access_token']}"}
+            )
+            response.raise_for_status()
+            user_info = response.json()
+
+        # Here you can implement your logic to create or update the user in your database
+        request.session['user'] = user_info  # Store the user's email in the session
+
+    except Exception as e:
+        print(e)
+        return RedirectResponse(url="/login")
+
+    return RedirectResponse(url="/")  # Redirect to the home page after successful login
 
 
 class User(BaseModel):
@@ -202,9 +253,10 @@ def build_situation_from_video(video_path, date, race_country):
     return descriptions
 
 
-@app.post("/predict", dependencies=[Depends(RateLimiter(times=5, seconds=60))]) # Rate limiting to 5 requests per minute
+@app.post("/predict",
+          dependencies=[Depends(RateLimiter(times=5, seconds=60))])  # Rate limiting to 5 requests per minute
 async def predict_violation(request: Request, situation_request: SituationRequest):
-    if not request.session.get('user'): # Check if user is authenticated, raise 예외 발생
+    if not request.session.get('user'):  # Check if user is authenticated, raise 예외 발생
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         analysis_result = run_rag_pipeline(situation_request.situation)
