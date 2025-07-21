@@ -24,7 +24,8 @@
 </head>
 <body>
     <div class="container"> <!-- Main container for the content -->
-        <div class="d-flex justify-content-end mb-3">
+        <div class="d-flex justify-content-end align-items-center mb-3">
+            <div id="userInfo" class="me-3"></div>
             <a href="/logout" class="btn btn-secondary">Logout</a>
         </div>
         <h1 class="mb-4 text-center">F1 Stewardbot</h1> <!-- Main title of the page -->
@@ -159,6 +160,37 @@
                 document.getElementById('errorAlert').style.display = 'block';
             } finally {
                 toggleTabs(true);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const userInfo = document.getElementById('userInfo');
+
+            if (!userInfo) return;
+
+            try {
+                const response = await fetch('/user_info'); // Fetch user information from the server
+                if (response.ok) {
+                    const data = await response.json();
+                    userInfo.textContent = ''; // Clear existing content
+
+                    if (data.login_type === 'google' && data.picture) {
+                        const userImage = document.createElement('img');
+                        userImage.src = data.picture;
+                        userImage.alt = 'User Picture';
+                        userImage.className = 'rounded-circle me-2';
+                        userImage.style.width = '32px';
+                        userImage.style.height = '32px';
+                        userImage.style.marginRight = '8px';
+                        userInfo.appendChild(userImage);
+                    }
+
+                    const userNameSpan = document.createElement('span');
+                    userNameSpan.textContent = data.username;
+                    userInfo.appendChild(userNameSpan);
+                }
+            } catch (error) {
+                userInfo.textContent = 'Error fetching user info'; // Failed to fetch user information
             }
         });
 
