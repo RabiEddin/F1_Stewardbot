@@ -24,7 +24,8 @@
 </head>
 <body>
     <div class="container"> <!-- Main container for the content -->
-        <div class="d-flex justify-content-end mb-3">
+        <div class="d-flex justify-content-end align-items-center mb-3">
+            <div id="userInfo" class="me-3"></div>
             <a href="/logout" class="btn btn-secondary">Logout</a>
         </div>
         <h1 class="mb-4 text-center">F1 Stewardbot</h1> <!-- Main title of the page -->
@@ -159,6 +160,30 @@
                 document.getElementById('errorAlert').style.display = 'block';
             } finally {
                 toggleTabs(true);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const userInfo = document.getElementById('userInfo');
+
+            if (!userInfo) return;
+
+            try {
+                const response = await fetch('/user_info'); // 서버에서 사용자 정보를 가져옴
+                if (response.ok) {
+                    const data = await response.json();
+                    let userInfoHtml = '';
+
+                    if (data.login_type === 'google' && data.picture) {
+                        userInfoHtml = `<img src="${data.picture}" alt="User Picture" class="rounded-circle me-2" style="width: 32px; height: 32px; margin-right: 8px">\n<span>${data.username}</span>`;
+                    } else {
+                        userInfoHtml = `<span>${data.username}</span>`;
+                    }
+
+                    userInfo.innerHTML = userInfoHtml; // 사용자 정보 표시
+                }
+            } catch (error) {
+                userInfo.textContent = 'Error fetching user info'; // 사용자 정보 가져오기 실패
             }
         });
 
