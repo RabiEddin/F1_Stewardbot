@@ -172,15 +172,22 @@
                 const response = await fetch('/user_info'); // Fetch user information from the server
                 if (response.ok) {
                     const data = await response.json();
-                    let userInfoHtml = '';
+                    userInfo.textContent = ''; // Clear existing content
 
                     if (data.login_type === 'google' && data.picture) {
-                        userInfoHtml = `<img src="${data.picture}" alt="User Picture" class="rounded-circle me-2" style="width: 32px; height: 32px; margin-right: 8px">\n<span>${data.username}</span>`;
-                    } else {
-                        userInfoHtml = `<span>${data.username}</span>`;
+                        const userImage = document.createElement('img');
+                        userImage.src = data.picture;
+                        userImage.alt = 'User Picture';
+                        userImage.className = 'rounded-circle me-2';
+                        userImage.style.width = '32px';
+                        userImage.style.height = '32px';
+                        userImage.style.marginRight = '8px';
+                        userInfo.appendChild(userImage);
                     }
 
-                    userInfo.innerHTML = userInfoHtml; // 사용자 정보 표시
+                    const userNameSpan = document.createElement('span');
+                    userNameSpan.textContent = data.username;
+                    userInfo.appendChild(userNameSpan);
                 }
             } catch (error) {
                 userInfo.textContent = 'Error fetching user info'; // 사용자 정보 가져오기 실패
