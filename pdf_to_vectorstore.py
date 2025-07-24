@@ -18,6 +18,15 @@ OPENSEARCH_URL = os.getenv("OPENSEARCH_URL")
 OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME")
 OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
 
+# OpenSearch 클라이언트 구성
+opensearch_client = OpenSearch(
+    hosts=[{"host": OPENSEARCH_URL, "port": 443}],
+    http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
+    use_ssl=True,
+    verify_certs=False,
+    ssl_show_warn=False,
+    connection_class=RequestsHttpConnection
+)
 
 def extract_text(pdf_path):  # PDF 텍스트 추출
     doc = fitz.open(pdf_path)
@@ -86,16 +95,6 @@ def create_documents(sections):  # LangChain Document 생성
 def store_to_opensearch(documents):  # Opensearch에 저장
     embeddings = OpenAIEmbeddings()
     index_name = "f1_sporting_regulations"  # Opensearch 인덱스 이름
-
-    # OpenSearch 클라이언트 구성
-    opensearch_client = OpenSearch(
-        hosts=[{"host": OPENSEARCH_URL, "port": 443}],
-        http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
-        use_ssl=True,
-        verify_certs=False,
-        ssl_show_warn=False,
-        connection_class=RequestsHttpConnection
-    )
 
     print("OpenSearch 연결 테스트 중...")
     print(opensearch_client.info())
