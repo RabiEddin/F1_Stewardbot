@@ -1,8 +1,9 @@
-from fastapi import FastAPI, UploadFile, File, Form, Depends
+from fastapi import FastAPI, UploadFile, File, Form, Depends, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 import os
+import json
 from dotenv import load_dotenv
 from langchain_community.vectorstores import OpenSearchVectorSearch
 from opensearchpy import OpenSearch, RequestsHttpConnection
@@ -11,7 +12,8 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.globals import set_verbose
-
+from starlette.middleware.sessions import SessionMiddleware
+from passlib.context import CryptContext
 import cv2
 import base64
 from openai import OpenAI
@@ -21,9 +23,11 @@ import tempfile
 
 from fastapi_limiter import FastAPILimiter
 from fastapi_limiter.depends import RateLimiter
-from starlette.requests import Request
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from redis import asyncio as aioredis
+
+from httpx_oauth.clients.google import GoogleOAuth2
+import httpx
 
 set_verbose(True)
 load_dotenv()
@@ -32,36 +36,157 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENSEARCH_URL = os.getenv("OPENSEARCH_URL")
 OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME")
 OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    raise RuntimeError("Environment variables GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set.")
 
 app = FastAPI()
+
+# Google OAuth2 client setup
+google_client = GoogleOAuth2(
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
+    name="google",
+)
+
+# Password Hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Add session middleware
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+if not SESSION_SECRET_KEY:
+    raise RuntimeError("Environment variable SESSION_SECRET_KEY must be set.")
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
 
 # Static files setup
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-@app.on_event("startup")
+
+# Load users from a JSON file
+def load_users():
+    if not os.path.exists('users.json'):
+        return {}
+    with open('users.json', 'r') as f:
+        return json.load(f)
+
+
+@app.on_event("startup")  # Initialize FastAPILimiter with Redis on startup
 async def startup():
     redis = aioredis.from_url("redis://localhost:6379", encoding="utf-8", decode_responses=True)
     await FastAPILimiter.init(redis)
 
+
 @app.exception_handler(HTTP_429_TOO_MANY_REQUESTS)
 async def rate_limit_exception_handler(request: Request, exc: Exception):
-    return PlainTextResponse("Too many requests. Please try again later.", status_code=HTTP_429_TOO_MANY_REQUESTS)
+    return JSONResponse(status_code=HTTP_429_TOO_MANY_REQUESTS, content={"message": "Too many requests"})
+
 
 @app.get("/", response_class=HTMLResponse)
-async def read_root():
+async def read_root(request: Request):
+    if not request.session.get('user'):
+        return RedirectResponse(url="/login")
     with open("app/static/index.html", "r") as f:
         return HTMLResponse(content=f.read())
 
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page():
+    with open("app/static/login.html", "r") as f:
+        return HTMLResponse(content=f.read())
+
+
+@app.get("/auth/login/google")
+async def google_login():
+    """ Redirects to Google OAuth2 login page
+    """
+    authorization_url = await google_client.get_authorization_url(
+        GOOGLE_REDIRECT_URI,
+        scope=["openid", "email", "profile"],  # Specify the scopes you need
+    )
+    return RedirectResponse(url=authorization_url)
+
+
+@app.get("/auth/google")
+async def google_callback(request: Request, code: str):
+    """ Handles the callback from Google OAuth2 and logs in the user
+    """
+    try:
+        token = await google_client.get_access_token(code, GOOGLE_REDIRECT_URI)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://www.googleapis.com/oauth2/v2/userinfo",
+                headers={"Authorization": f"Bearer {token['access_token']}"}
+            )
+            response.raise_for_status()
+            user_info = response.json()
+
+        # Here you can implement your logic to create or update the user in your database
+        request.session['user'] = user_info  # Store the user's email in the session
+
+    except Exception as e:
+        logging.error("An error occurred during Google OAuth2 callback", exc_info=True)
+        return RedirectResponse(url="/login")
+
+    return RedirectResponse(url="/")  # Redirect to the home page after successful login
+
+
+class User(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/login")
+async def login(user: User, request: Request):
+    users = load_users()
+    if user.username in users and pwd_context.verify(user.password, users[user.username]):
+        request.session['user'] = user.username
+        return JSONResponse(content={"message": "Login successful"})
+    return JSONResponse(status_code=401, content={"message": "Invalid credentials"})
+
+
+@app.get("/logout")  # http get 방식으로 아래 logout 함수를 호출하면 세션에서 user를 제거하고 로그인 페이지로 리다이렉트합니다.
+async def logout(request: Request):
+    request.session.pop('user', None)  # 세션에서 'user' 키를 제거합니다.
+    return RedirectResponse(url="/login")  # 로그인 페이지로 리다이렉트합니다.
+
+
+@app.get("/user_info")
+async def user_info(request: Request):
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Google user info and normal user info
+    # Google user info is stored in the session as a dictionary
+    # normal user info is stored as a string (username)
+    if isinstance(user, dict): # isinstance check to determine if user is a dictionary (Google user info)
+        user_info = {
+            "login_type": "google",
+            "email": user.get("email"),
+            "username": user.get("name"),
+            "picture": user.get("picture")
+        }
+    else:
+        user_info = {
+            "login_type": "default",
+            "username": user
+        }
+    return JSONResponse(content=user_info)
+
 class SituationRequest(BaseModel):
     situation: str
+
 
 def connect_to_vectorstore():
     embeddings = OpenAIEmbeddings()
 
     vector_store = OpenSearchVectorSearch(
-        index_name="f1_rules",
+        index_name="f1_sporting_regulations",
         embedding_function=embeddings,
-        opensearch_url=OPENSEARCH_URL+":443",
+        opensearch_url=OPENSEARCH_URL + ":443",
         http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
         use_ssl=True,
         verify_certs=False,
@@ -71,9 +196,11 @@ def connect_to_vectorstore():
     )
     return vector_store
 
+
 def search_related_rules(user_input, vector_store, k=5):
     results = vector_store.similarity_search(user_input, k=k)
     return results
+
 
 def build_reasoning_chain():
     prompt_file_path = "txt files/Examples.txt"
@@ -88,6 +215,7 @@ def build_reasoning_chain():
     chain = LLMChain(llm=llm, prompt=prompt_template)
     return chain
 
+
 def run_rag_pipeline(user_input):
     vector_store = connect_to_vectorstore()
     docs = search_related_rules(user_input, vector_store)
@@ -97,8 +225,10 @@ def run_rag_pipeline(user_input):
     result = chain.run({"context": context, "question": user_input})
     return result
 
+
 # Video processing functions
 client = OpenAI(api_key=OPENAI_API_KEY)
+
 
 def extract_frames_from_video(video_path, fps=2, max_frames=20):
     cap = cv2.VideoCapture(video_path)
@@ -123,6 +253,7 @@ def extract_frames_from_video(video_path, fps=2, max_frames=20):
     cap.release()
     return frames
 
+
 def describe_frame_b64(frames, prompt_file_path, date, race_country):
     with open(prompt_file_path, 'r', encoding='utf-8') as pf:
         prompt_text = pf.read().strip()
@@ -141,22 +272,30 @@ def describe_frame_b64(frames, prompt_file_path, date, race_country):
     )
     return response.choices[0].message.content
 
+
 def build_situation_from_video(video_path, date, race_country):
     frames = extract_frames_from_video(video_path)
     descriptions = describe_frame_b64(frames, "txt files/situation_description.txt", date, race_country)
     return descriptions
 
 
-@app.post("/predict", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def predict_violation(request: SituationRequest):
+@app.post("/predict",
+          dependencies=[Depends(RateLimiter(times=5, seconds=60))])  # Rate limiting to 5 requests per minute
+async def predict_violation(request: Request, situation_request: SituationRequest):
+    if not request.session.get('user'):  # Check if user is authenticated, raise 예외 발생
+        raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        analysis_result = run_rag_pipeline(request.situation)
+        analysis_result = run_rag_pipeline(situation_request.situation)
         return {"analysis": analysis_result}
     except Exception as e:
         return {"error": str(e)}
 
+
 @app.post("/analyze_video", dependencies=[Depends(RateLimiter(times=5, seconds=60))])
-async def analyze_video(video: UploadFile = File(...), date: str = Form(...), race_country: str = Form(...)):
+async def analyze_video(request: Request, video: UploadFile = File(...), date: str = Form(...),
+                        race_country: str = Form(...)):
+    if not request.session.get('user'):
+        raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         # Save the uploaded video to a temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
