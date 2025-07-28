@@ -56,7 +56,10 @@ google_client = GoogleOAuth2(
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Add session middleware
-app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
+SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
+if not SESSION_SECRET_KEY:
+    raise RuntimeError("Environment variable SESSION_SECRET_KEY must be set.")
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
 
 # Static files setup
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
