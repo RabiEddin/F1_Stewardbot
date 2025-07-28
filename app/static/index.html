@@ -215,7 +215,7 @@
 
             const videoDisplay = document.getElementById('video-display');
             const videoElement = videoDisplay.querySelector('video');
-            const videoURL = URL.createObjectURL(videoFile);
+            videoURL = URL.createObjectURL(videoFile);
             videoElement.src = videoURL;
             videoDisplay.style.display = 'block';
 
