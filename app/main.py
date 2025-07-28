@@ -124,7 +124,7 @@ async def google_callback(request: Request, code: str):
         request.session['user'] = user_info  # Store the user's email in the session
 
     except Exception as e:
-        print(e)
+        logging.error("An error occurred during Google OAuth2 callback", exc_info=True)
         return RedirectResponse(url="/login")
 
     return RedirectResponse(url="/")  # Redirect to the home page after successful login
