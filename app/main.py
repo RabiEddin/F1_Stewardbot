@@ -38,6 +38,7 @@ OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME")
 OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 
 if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
     raise RuntimeError("Environment variables GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set.")
@@ -98,9 +99,8 @@ async def login_page():
 async def google_login():
     """ Redirects to Google OAuth2 login page
     """
-    redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
     authorization_url = await google_client.get_authorization_url(
-        redirect_uri,
+        GOOGLE_REDIRECT_URI,
         scope=["openid", "email", "profile"],  # Specify the scopes you need
     )
     return RedirectResponse(url=authorization_url)
@@ -111,7 +111,7 @@ async def google_callback(request: Request, code: str):
     """ Handles the callback from Google OAuth2 and logs in the user
     """
     try:
-        token = await google_client.get_access_token(code, os.getenv("GOOGLE_REDIRECT_URI"))
+        token = await google_client.get_access_token(code, GOOGLE_REDIRECT_URI)
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 "https://www.googleapis.com/oauth2/v2/userinfo",
