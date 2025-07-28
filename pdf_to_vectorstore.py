@@ -85,7 +85,7 @@ def create_documents(sections):  # LangChain Document 생성
 
 def store_to_opensearch(documents):  # Opensearch에 저장
     embeddings = OpenAIEmbeddings()
-    index_name = "f1_stewardbot"
+    index_name = "f1_sporting_regulations"  # Opensearch 인덱스 이름
 
     # OpenSearch 클라이언트 구성
     opensearch_client = OpenSearch(

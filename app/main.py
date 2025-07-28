@@ -33,7 +33,7 @@ set_verbose(True)
 load_dotenv()
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENSEARCH_URL = "search-f1--stewardbot-vk5ukbpmlhss2ef3jgnwwervla.us-east-2.es.amazonaws.com"
+OPENSEARCH_URL = os.getenv("OPENSEARCH_URL")
 OPENSEARCH_USERNAME = os.getenv("OPENSEARCH_USERNAME")
 OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -181,7 +181,7 @@ def connect_to_vectorstore():
     embeddings = OpenAIEmbeddings()
 
     vector_store = OpenSearchVectorSearch(
-        index_name="f1_rules",
+        index_name="f1_sporting_regulations",
         embedding_function=embeddings,
         opensearch_url=OPENSEARCH_URL + ":443",
         http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
