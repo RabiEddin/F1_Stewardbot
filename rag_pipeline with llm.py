@@ -21,7 +21,7 @@ def connect_to_vectorstore():
     embeddings = OpenAIEmbeddings()
 
     vector_store = OpenSearchVectorSearch(
-        index_name="f1_rules",
+        index_name="f1_sporting_regulations",
         embedding_function=embeddings,
         opensearch_url=OPENSEARCH_URL+":443",
         http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
