@@ -27,12 +27,16 @@ patterns = {
         "clause": r"(?m)^\s*({section_num}\.\d+)\s+[A-Z]"},
     "f1_pu_financial_regulations": {
         "top_section": r"(?m)^\s*(\d+)\.\s+([A-Z][^\n]+)",
+        "clause": r"(?m)^\s*({section_num}\.\d+)\s+[A-Z]"},
+    "f1_financial_regulations": {
+        "top_section": r"(?m)^\s*(\d+)\.\s+([A-Z][^\n]+)",
         "clause": r"(?m)^\s*({section_num}\.\d+)\s+[A-Z]"}
 }
 
 rename = {
     "Formula 1 Sporting Regulations": "f1_sporting_regulations",
     "Formula 1 PU Financial Regulations": "f1_pu_financial_regulations",
+    "Formula 1 Financial Regulations": "f1_financial_regulations",
 }
 
 # OpenSearch 클라이언트 구성
@@ -146,7 +150,7 @@ def store_to_opensearch(documents):  # Opensearch에 저장
 
 
 if __name__ == "__main__":
-    pdf_path = "F1_Rulebook_ver20250619/FIA Formula 1 PU Financial Regulations - Issue 7 - 2025-06-10 (1).pdf"
+    pdf_path = "F1_Rulebook_ver20250619/FIA Formula 1 Financial Regulations - Issue 24 - 2025-04-30.pdf"
 
     selected_pattern_key = "default"
     sorted_keys = sorted(patterns.keys(), key=len, reverse=True)
