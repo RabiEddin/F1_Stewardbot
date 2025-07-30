@@ -210,7 +210,7 @@ def store_to_opensearch(documents, index_name):  # Opensearch에 저장
     # vector_store.add_documents(documents)
 
     # Langchain documents를 OpenSearch에 저장하기 위한 actions 생성
-    actions=[]
+    actions = []
     for doc in documents:
         actions.append({
             "_op_type": "index",
