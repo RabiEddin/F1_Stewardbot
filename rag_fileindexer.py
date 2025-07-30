@@ -30,13 +30,17 @@ patterns = {
         "clause": r"(?m)^\s*({section_num}\.\d+)\s+[A-Z]"},
     "f1_financial_regulations": {
         "top_section": r"(?m)^\s*(\d+)\.\s+([A-Z][^\n]+)",
-        "clause": r"(?m)^\s*({section_num}\.\d+)\s+[A-Z]"}
+        "clause": r"(?m)^\s*({section_num}\.\d+)\s+[A-Z]"},
+    "f1_technical_regulations": {
+        "top_section": r"(?m)^ARTICLE\s+(\d+):\s+([A-Z][^\n]+)",
+        "clause": r"(?m)^\s*({section_num}\.\d+)(?!\.\d)\s+[A-Z]",
+        "sub_clause": r"(?m)^\s*({sub_section_num}\.\d+)\s+[A-Z]"},
 }
-
 rename = {
     "Formula 1 Sporting Regulations": "f1_sporting_regulations",
     "Formula 1 PU Financial Regulations": "f1_pu_financial_regulations",
     "Formula 1 Financial Regulations": "f1_financial_regulations",
+    "formula_1_technical_regulations": "f1_technical_regulations",
 }
 
 # OpenSearch 클라이언트 구성
@@ -101,6 +105,73 @@ def extract_sections_from_text(text, top_section_pattern, clause_pattern_templat
     return result
 
 
+def extract_sections_from_text2(text, top_section_pattern_template, level1_pattern_template,
+                                level2_pattern_template):  # 목차 기반 섹션 분할
+    # 상위 섹션: 예) ARTICLE 1: GENERAL PRINCIPLES
+    top_sections = list(re.finditer(top_section_pattern_template, text))
+
+    result = []
+
+    for i, top in enumerate(top_sections):
+        section_num = top.group(1).strip()
+        section_title = top.group(2).strip()
+        start = top.end()
+        end = top_sections[i + 1].start() if i + 1 < len(top_sections) else len(text)
+
+        section_text = text[start-1:end].strip()
+
+        # 1단계 조항(1.1) 매칭
+        level1_pattern = level1_pattern_template.format(section_num=section_num)
+        level1_matches = list(re.finditer(level1_pattern, section_text))
+
+        if level1_matches:
+            for i1, m1 in enumerate(level1_matches):
+                sub_section_num = m1.group(1).strip()
+                start1 = m1.end()
+                end1 = level1_matches[i1 + 1].start() if i1 + 1 < len(level1_matches) else len(section_text)
+                level1_text = section_text[start1-1:end1].strip()
+
+                # 2단계 조항(1.1.1) 매칭
+                level2_pattern = level2_pattern_template.format(sub_section_num=sub_section_num)
+                level2_matches = list(re.finditer(level2_pattern, level1_text))
+                if level2_matches:
+                    for i2, m2 in enumerate(level2_matches):
+                        sub_sub_section_num = m2.group(1).strip()
+                        start2 = m2.end()
+                        end2 = level2_matches[i2 + 1].start() if i2 + 1 < len(level2_matches) else len(level1_text)
+
+                        content = level1_text[start2-1:end2]
+
+                        result.append({
+                            "section": section_num,
+                            "sub_section": sub_section_num,
+                            "sub_sub_section": sub_sub_section_num,
+                            "title": section_title,
+                            "content": content
+                        })
+                else:
+                    # 2단계가 없으면 1단계 전체를 하나의 항목으로
+                    content = level1_text.strip()
+                    result.append({
+                        "section": section_num,
+                        "sub_section": sub_section_num,
+                        "sub_sub_section": None,
+                        "title": section_title,
+                        "content": content
+                    })
+        else:
+            # 조항 번호가 없을 경우 상위 섹션 전체 저장
+            result.append({
+                "section": section_num,
+                "sub_section": None,
+                "sub_sub_section": None,
+                "title": section_title,
+                "content": section_text.strip()
+            })
+
+    return result
+
+
 def create_documents(sections):  # LangChain Document 생성
     return [
         Document(
@@ -150,7 +221,7 @@ def store_to_opensearch(documents):  # Opensearch에 저장
 
 
 if __name__ == "__main__":
-    pdf_path = "F1_Rulebook_ver20250619/FIA Formula 1 Financial Regulations - Issue 24 - 2025-04-30.pdf"
+    pdf_path = "F1_Rulebook_ver20250619/fia_2025_formula_1_technical_regulations_-_issue_03_-_2025-04-07.pdf"
 
     selected_pattern_key = "default"
     sorted_keys = sorted(patterns.keys(), key=len, reverse=True)
@@ -165,15 +236,24 @@ if __name__ == "__main__":
 
     selected_patterns = patterns[selected_pattern_key]
     top_section_pattern = selected_patterns["top_section"]
-    clause_pattern = selected_patterns["clause"]
 
     print("PDF에서 텍스트 추출 중...")
     full_text = extract_text(pdf_path)
 
     print("목차 기반 섹션 분할 중...")
-    sections = extract_sections_from_text(full_text,
-                                          top_section_pattern=top_section_pattern,
-                                          clause_pattern_template=clause_pattern)
+    if selected_pattern_key == "f1_technical_regulations":
+        # f1_technical_regulations 경우 2단계 조항까지 분리
+        level1_pattern = selected_patterns["clause"]
+        level2_pattern = selected_patterns["sub_clause"]
+        sections = extract_sections_from_text2(full_text,
+                                               top_section_pattern_template=top_section_pattern,
+                                               level1_pattern_template=level1_pattern,
+                                               level2_pattern_template=level2_pattern)
+    else:
+        clause_pattern = selected_patterns["clause"]
+        sections = extract_sections_from_text(full_text,
+                                              top_section_pattern=top_section_pattern,
+                                              clause_pattern_template=clause_pattern)
 
     print(f"총 {len(sections)}개 섹션 분할 완료.")
 
