@@ -234,7 +234,7 @@ def store_to_opensearch(documents, index_name):  # Opensearch에 저장
             success += 1
         else:
             failed += 1
-            # 실패 로그를 보고 싶으면 print(item) 등으로 출력
+            logging.error(f"Failed to index document: {item}")
 
     print(f"[✅] Indexed: {success}, Failed: {failed}")
 
