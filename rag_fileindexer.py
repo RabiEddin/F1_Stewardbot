@@ -186,9 +186,9 @@ def create_documents(sections):  # LangChain Document 생성
     ]
 
 
-def store_to_opensearch(documents):  # Opensearch에 저장
+def store_to_opensearch(documents, index_name):  # Opensearch에 저장
     embeddings = OpenAIEmbeddings()
-    index_name = "f1_sporting_regulations"  # Opensearch 인덱스 이름
+    # index_name = "f1_sporting_regulations"  # Opensearch 인덱스 이름
 
     print("OpenSearch 연결 테스트 중...")
     print(opensearch_client.info())
@@ -261,10 +261,10 @@ if __name__ == "__main__":
     with open("sections2.json", "w", encoding="utf-8") as f:
         json.dump(sections, f, indent=2, ensure_ascii=False)
 
-    # print("문서 → LangChain Document 변환 중...")
-    # documents = create_documents(sections)
-    #
-    # print("Opensearch에 저장 중...")
-    # store_to_opensearch(documents)
-    #
-    # print("저장 완료!")
+    print("문서 → LangChain Document 변환 중...")
+    documents = create_documents(sections)
+
+    print("Opensearch에 저장 중...")
+    store_to_opensearch(documents, selected_pattern_key)
+
+    print("저장 완료!")
