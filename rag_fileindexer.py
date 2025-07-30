@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from langchain.schema import Document
 from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
-from opensearchpy import OpenSearch, RequestsHttpConnection
+from opensearchpy import OpenSearch, RequestsHttpConnection, helpers
 from langchain_community.vectorstores import OpenSearchVectorSearch
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
@@ -207,7 +207,37 @@ def store_to_opensearch(documents, index_name):  # Opensearch에 저장
     )
 
     print("문서 벡터 저장 중...")
-    vector_store.add_documents(documents)
+    # vector_store.add_documents(documents)
+
+    # Langchain documents를 OpenSearch에 저장하기 위한 actions 생성
+    actions=[]
+    for doc in documents:
+        actions.append({
+            "_op_type": "index",
+            "_index": vector_store.index_name,
+            "_source": {
+                **doc.metadata,
+                "text": doc.page_content
+            }
+        })
+
+    # parallel bulk 호출
+    success, failed = 0, 0
+    for ok, item in helpers.parallel_bulk(
+            client=vector_store.client,  # OpenSearch 클라이언트 인스턴스
+            actions=actions,
+            thread_count=4,  # 워커 스레드 수 (예: 4)
+            chunk_size=300,  # 한 번에 보낼 도큐먼트 수
+            request_timeout=60  # 타임아웃 여유 있게
+    ):
+        if ok:
+            success += 1
+        else:
+            failed += 1
+            # 실패 로그를 보고 싶으면 print(item) 등으로 출력
+
+    print(f"[✅] Indexed: {success}, Failed: {failed}")
+
 
     # vector_store = OpenSearchVectorSearch.from_documents(
     #     documents=documents,
