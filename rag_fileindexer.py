@@ -227,7 +227,7 @@ def store_to_opensearch(documents, index_name):  # Opensearch에 저장
             client=vector_store.client,  # OpenSearch 클라이언트 인스턴스
             actions=actions,
             thread_count=4,  # 워커 스레드 수 (예: 4)
-            chunk_size=300,  # 한 번에 보낼 도큐먼트 수
+            chunk_size=int(os.getenv("CHUNK_SIZE", 300)),  # 한 번에 보낼 도큐먼트 수 (기본값: 300, 환경 변수로 설정 가능)
             request_timeout=60  # 타임아웃 여유 있게
     ):
         if ok:
