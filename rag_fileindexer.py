@@ -251,7 +251,15 @@ def store_to_opensearch(documents, index_name):  # Opensearch에 저장
 
 
 if __name__ == "__main__":
-    pdf_dir = "F1_Rulebook_ver20250619/"
+    import argparse
+
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Process PDF files from a specified directory.")
+    parser.add_argument("--pdf-dir", type=str, help="Path to the directory containing PDF files.")
+    args = parser.parse_args()
+
+    # Determine the PDF directory
+    pdf_dir = args.pdf_dir or os.getenv("PDF_DIR", "F1_Rulebook_ver20250619/")
     pdf_files = [os.path.join(pdf_dir, f) for f in os.listdir(pdf_dir) if f.endswith('.pdf') and not f.startswith('.')]
     # pdf_path = "F1_Rulebook_ver20250619/fia_2025_formula_1_technical_regulations_-_issue_03_-_2025-04-07.pdf"
 
