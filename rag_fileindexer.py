@@ -251,50 +251,64 @@ def store_to_opensearch(documents, index_name):  # Opensearch에 저장
 
 
 if __name__ == "__main__":
-    pdf_path = "F1_Rulebook_ver20250619/fia_2025_formula_1_technical_regulations_-_issue_03_-_2025-04-07.pdf"
+    pdf_dir = "F1_Rulebook_ver20250619/"
+    pdf_files = [os.path.join(pdf_dir, f) for f in os.listdir(pdf_dir) if f.endswith('.pdf') and not f.startswith('.')]
+    # pdf_path = "F1_Rulebook_ver20250619/fia_2025_formula_1_technical_regulations_-_issue_03_-_2025-04-07.pdf"
 
-    selected_pattern_key = "default"
-    sorted_keys = sorted(patterns.keys(), key=len, reverse=True)
-    sorted_rename = sorted(rename.keys(), key=len, reverse=True)
+    all_sections = []
+    print(f"총 {len(pdf_files)}개의 PDF 파일을 처리합니다.")
 
-    for rename_value in sorted_rename:
-        if rename_value in pdf_path:
-            selected_pattern_key = rename[rename_value]
-            break
+    for pdf_path in pdf_files:
+        print(f"처리 중: {pdf_path}")
 
-    print(f"선택된 패턴 키: {selected_pattern_key}")
+        # 파일 이름에서 패턴 키 선택
+        selected_pattern_key = "default"
+        sorted_keys = sorted(patterns.keys(), key=len, reverse=True)
+        sorted_rename = sorted(rename.keys(), key=len, reverse=True)
 
-    selected_patterns = patterns[selected_pattern_key]
-    top_section_pattern = selected_patterns["top_section"]
+        for rename_value in sorted_rename:
+            if rename_value in pdf_path:
+                selected_pattern_key = rename[rename_value]
+                break
 
-    print("PDF에서 텍스트 추출 중...")
-    full_text = extract_text(pdf_path)
+        print(f"선택된 패턴 키: {selected_pattern_key}")
 
-    print("목차 기반 섹션 분할 중...")
-    if selected_pattern_key == "f1_technical_regulations":
-        # f1_technical_regulations 경우 2단계 조항까지 분리
-        level1_pattern = selected_patterns["clause"]
-        level2_pattern = selected_patterns["sub_clause"]
-        sections = extract_sections_from_text2(full_text,
-                                               top_section_pattern_template=top_section_pattern,
-                                               level1_pattern_template=level1_pattern,
-                                               level2_pattern_template=level2_pattern)
-    else:
-        clause_pattern = selected_patterns["clause"]
-        sections = extract_sections_from_text(full_text,
-                                              top_section_pattern=top_section_pattern,
-                                              clause_pattern_template=clause_pattern)
+        selected_patterns = patterns[selected_pattern_key]
+        top_section_pattern = selected_patterns["top_section"]
 
-    print(f"총 {len(sections)}개 섹션 분할 완료.")
+        print("PDF에서 텍스트 추출 중...")
+        full_text = extract_text(pdf_path)
 
-    # (선택) 중간 결과 JSON 저장
-    with open("sections2.json", "w", encoding="utf-8") as f:
-        json.dump(sections, f, indent=2, ensure_ascii=False)
+        print("목차 기반 섹션 분할 중...")
+        if selected_pattern_key == "f1_technical_regulations":
+            # f1_technical_regulations 경우 2단계 조항까지 분리
+            level1_pattern = selected_patterns["clause"]
+            level2_pattern = selected_patterns["sub_clause"]
+            sections = extract_sections_from_text2(full_text,
+                                                   top_section_pattern_template=top_section_pattern,
+                                                   level1_pattern_template=level1_pattern,
+                                                   level2_pattern_template=level2_pattern)
+        else:
+            clause_pattern = selected_patterns["clause"]
+            sections = extract_sections_from_text(full_text,
+                                                  top_section_pattern=top_section_pattern,
+                                                  clause_pattern_template=clause_pattern)
 
-    print("문서 → LangChain Document 변환 중...")
-    documents = create_documents(sections)
+        print(f"총 {len(sections)}개 섹션 분할 완료.")
 
-    print("Opensearch에 저장 중...")
-    store_to_opensearch(documents, selected_pattern_key)
+        all_sections.extend(sections)
 
-    print("저장 완료!")
+        base_filename = os.path.splitext(os.path.basename(pdf_path))[0]
+        output_json_path = f"sections_{base_filename}.json"
+
+        # (선택) 중간 결과 JSON 저장
+        with open(output_json_path, "w", encoding="utf-8") as f:
+            json.dump(sections, f, indent=2, ensure_ascii=False)
+
+        print("문서 → LangChain Document 변환 중...")
+        documents = create_documents(sections)
+
+        print("Opensearch에 저장 중...")
+        store_to_opensearch(documents, selected_pattern_key)
+
+        print("저장 완료!")
