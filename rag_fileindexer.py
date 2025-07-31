@@ -3,6 +3,7 @@ import fitz
 import re
 import os
 import json
+import logging
 from dotenv import load_dotenv
 from langchain.schema import Document
 from langchain_ollama import OllamaEmbeddings
