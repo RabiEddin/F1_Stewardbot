@@ -19,45 +19,69 @@ OPENSEARCH_PASSWORD = os.getenv("OPENSEARCH_PASSWORD")
 embeddings = OpenAIEmbeddings()
 
 # OpenSearch 클라이언트 구성
-vector_store = OpenSearchVectorSearch(
-    embedding_function=embeddings,
-    opensearch_url=OPENSEARCH_URL + ":443",
-    http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
-    use_ssl=True,
-    verify_certs=False,
-    ssl_show_warn=False,
-    connection_class=RequestsHttpConnection,
-    timeout=60,
-)
+vector_store = {
+    "sporting_regulations": OpenSearchVectorSearch(
+        index_name="f1_sporting_regulations",
+        embedding_function=embeddings,
+        opensearch_url=OPENSEARCH_URL + ":443",
+        http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
+        use_ssl=True,
+        verify_certs=False,
+        ssl_show_warn=False,
+        connection_class=RequestsHttpConnection,
+        timeout=60,
+    ),
+    "f1_pu_financial_regulations": OpenSearchVectorSearch(
+        index_name="f1_pu_financial_regulations",
+        embedding_function=embeddings,
+        opensearch_url=OPENSEARCH_URL + ":443",
+        http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
+        use_ssl=True,
+        verify_certs=False,
+        ssl_show_warn=False,
+        connection_class=RequestsHttpConnection,
+        timeout=60,
+    ),
+    "f1_financial_regulations": OpenSearchVectorSearch(
+        index_name="f1_financial_regulations",
+        embedding_function=embeddings,
+        opensearch_url=OPENSEARCH_URL + ":443",
+        http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
+        use_ssl=True,
+        verify_certs=False,
+        ssl_show_warn=False,
+        connection_class=RequestsHttpConnection,
+        timeout=60,
+    ),
+    "f1_technical_regulations": OpenSearchVectorSearch(
+        index_name="f1_technical_regulations",
+        embedding_function=embeddings,
+        opensearch_url=OPENSEARCH_URL + ":443",
+        http_auth=(OPENSEARCH_USERNAME, OPENSEARCH_PASSWORD),
+        use_ssl=True,
+        verify_certs=False,
+        ssl_show_warn=False,
+        connection_class=RequestsHttpConnection,
+        timeout=60,
+    )
+}
 
 
 # 각 Openseach 인덱스를 검색하는 함수 생성
 def search_sporting_regulations(query: str) -> str:
-    index_name = "f1_sporting_regulations"
-    results = vector_store.similarity_search(query, k=5, index_name=index_name)
-
-    return results
+    return vector_store["sporting_regulations"].similarity_search(query, k=5)
 
 
 def search_f1_pu_financial_regulations(query: str):
-    index_name = "f1_pu_financial_regulations"
-    results = vector_store.similarity_search(query, k=5, index_name=index_name)
-
-    return results
+    return vector_store["f1_pu_financial_regulations"].similarity_search(query, k=5)
 
 
 def search_f1_financial_regulations(query: str):
-    index_name = "f1_financial_regulations"
-    results = vector_store.similarity_search(query, k=5, index_name=index_name)
-
-    return results
+    return vector_store["f1_financial_regulations"].similarity_search(query, k=5)
 
 
 def search_f1_technical_regulations(query: str):
-    index_name = "f1_technical_regulations"
-    results = vector_store.similarity_search(query, k=5, index_name=index_name)
-
-    return results
+    return vector_store["f1_technical_regulations"].similarity_search(query, k=5)
 
 
 tools = {
@@ -105,5 +129,5 @@ def build_agentic_rag():
     return agent_executor
 
 
-response = build_agent_chain().invoke({"input": input("Enter your question about F1 regulations: ")})
+response = build_agentic_rag().invoke({"input": input("Enter your question about F1 regulations: ")})
 print("LLM 분석 결과:\n", response['output'])
