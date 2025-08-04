@@ -36,12 +36,16 @@ patterns = {
         "top_section": r"(?m)^ARTICLE\s+(\d+):\s+([A-Z][^\n]+)",
         "clause": r"(?m)^\s*({section_num}\.\d+)(?!\.\d)\s+[A-Z]",
         "sub_clause": r"(?m)^\s*({sub_section_num}\.\d+)\s+[A-Z]"},
+    "f1_practice_directions": {
+        "top_section": r"(?m)^(?:\s*)?(\d+)\)\s+([A-Z][^\n]+)",
+        "clause": r"(?m)^\s*({section_num}\.\d+)\s+[A-Z]"},
 }
 rename = {
     "Formula 1 Sporting Regulations": "f1_sporting_regulations",
     "Formula 1 PU Financial Regulations": "f1_pu_financial_regulations",
     "Formula 1 Financial Regulations": "f1_financial_regulations",
     "formula_1_technical_regulations": "f1_technical_regulations",
+    "Practice Directions": "f1_practice_directions",
 }
 
 # OpenSearch 클라이언트 구성
@@ -297,6 +301,8 @@ if __name__ == "__main__":
                                                    top_section_pattern_template=top_section_pattern,
                                                    level1_pattern_template=level1_pattern,
                                                    level2_pattern_template=level2_pattern)
+        elif selected_pattern_key == "f1_practice_directions":
+            continue  # Practice Directions는 제외
         else:
             clause_pattern = selected_patterns["clause"]
             sections = extract_sections_from_text(full_text,
