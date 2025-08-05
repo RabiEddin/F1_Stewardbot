@@ -1,10 +1,12 @@
 # react_agent: 내부에서 주어진 LLM과 tool들을 사용하여 에이전트를 생성
 import os
+from typing import List
+
 from dotenv import load_dotenv
+from langchain_core.documents import Document
 from opensearchpy import OpenSearch, RequestsHttpConnection
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import OpenSearchVectorSearch
-from langchain_community.chat_models import ChatOpenAI
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.agents import tool
 from langchain_core.prompts import PromptTemplate
@@ -69,7 +71,7 @@ vector_store = {
 
 @tool
 # 각 Openseach 인덱스를 검색하는 함수 생성
-def search_sporting_regulations(query: str) -> str:
+def search_sporting_regulations(query: str) -> list[Document]:
     """MUST use for questions about race procedures, penalties, on-track rules, DRS, safety car, formation laps,
     restart protocols, parc fermé conditions, driver conduct, and session-specific regulations (e.g. sprint,
     qualifying, race)."""
@@ -77,21 +79,21 @@ def search_sporting_regulations(query: str) -> str:
 
 
 @tool
-def search_f1_pu_financial_regulations(query: str):
+def search_f1_pu_financial_regulations(query: str) -> list[Document]:
     """MUST use for questions about power unit manufacturer budgets, cost cap limits, permitted and excluded costs,
     financial reporting obligations, and FIA audit procedures."""
     return vector_store["f1_pu_financial_regulations"].similarity_search(query, k=5)
 
 
 @tool
-def search_f1_financial_regulations(query: str):
+def search_f1_financial_regulations(query: str) -> list[Document]:
     """MUST use for questions about car specifications, weight, tires, aerodynamics, chassis, power unit allocations,
     fuel systems, ERS components, cooling systems, transmission, and homologation requirements."""
     return vector_store["f1_financial_regulations"].similarity_search(query, k=5)
 
 
 @tool
-def search_f1_technical_regulations(query: str):
+def search_f1_technical_regulations(query: str) -> list[Document]:
     """MUST use for questions about car design, materials, dimensions, weight distribution, power unit configuration,
     energy recovery systems (ERS), fuel and lubrication, suspension, aerodynamics, electronics, and homologation
     rules."""
@@ -102,12 +104,12 @@ tools = [search_sporting_regulations, search_f1_pu_financial_regulations, search
 
 
 def build_agentic_rag():
-    prompt_file_path = "txt files/Examples.txt"
+    prompt_file_path = "txt files/Examples_for_agentic_rag.txt"
     with open(prompt_file_path, 'r', encoding='utf-8') as f:
         prompt_str = f.read()
 
     prompt_template = PromptTemplate(
-        input_variables=["context", "question"],
+        input_variables=["tools", "tool_names", "agent_scratchpad", "question"],
         template=prompt_str
     )
 
@@ -118,5 +120,5 @@ def build_agentic_rag():
     return agent_executor
 
 
-response = build_agentic_rag().invoke({"input": input("Enter your question about F1 regulations: ")})
+response = build_agentic_rag().invoke({"question": input("Enter your question about F1 regulations: ")})
 print("LLM 분석 결과:\n", response['output'])
