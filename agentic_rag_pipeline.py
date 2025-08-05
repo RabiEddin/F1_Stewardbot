@@ -6,7 +6,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import OpenSearchVectorSearch
 from langchain_community.chat_models import ChatOpenAI
 from langchain.agents import AgentExecutor, create_react_agent
-from langchain.tools import Tool
+from langchain.agents import tool
 from langchain_core.prompts import PromptTemplate
 
 load_dotenv()
@@ -67,49 +67,38 @@ vector_store = {
 }
 
 
+@tool
 # 각 Openseach 인덱스를 검색하는 함수 생성
 def search_sporting_regulations(query: str) -> str:
+    """MUST use for questions about race procedures, penalties, on-track rules, DRS, safety car, formation laps,
+    restart protocols, parc fermé conditions, driver conduct, and session-specific regulations (e.g. sprint,
+    qualifying, race)."""
     return vector_store["sporting_regulations"].similarity_search(query, k=5)
 
 
+@tool
 def search_f1_pu_financial_regulations(query: str):
+    """MUST use for questions about power unit manufacturer budgets, cost cap limits, permitted and excluded costs,
+    financial reporting obligations, and FIA audit procedures."""
     return vector_store["f1_pu_financial_regulations"].similarity_search(query, k=5)
 
 
+@tool
 def search_f1_financial_regulations(query: str):
+    """MUST use for questions about car specifications, weight, tires, aerodynamics, chassis, power unit allocations,
+    fuel systems, ERS components, cooling systems, transmission, and homologation requirements."""
     return vector_store["f1_financial_regulations"].similarity_search(query, k=5)
 
 
+@tool
 def search_f1_technical_regulations(query: str):
+    """MUST use for questions about car design, materials, dimensions, weight distribution, power unit configuration,
+    energy recovery systems (ERS), fuel and lubrication, suspension, aerodynamics, electronics, and homologation
+    rules."""
     return vector_store["f1_technical_regulations"].similarity_search(query, k=5)
 
 
-tools = {
-    Tool(
-        name="search_sporting_regulations",
-        func=search_sporting_regulations,
-        description="MUST use for questions about race procedures, penalties, on-track rules, DRS, safety car, "
-                    "formation laps, restart protocols, parc fermé conditions, driver conduct, and session-specific "
-                    "regulations (e.g. sprint, qualifying, race).",
-    ), Tool(
-        name="search_f1_pu_financial_regulations",
-        func=search_f1_pu_financial_regulations,
-        description="MUST use for questions about power unit manufacturer budgets, cost cap limits, permitted and "
-                    "excluded costs, financial reporting obligations, and FIA audit procedures.",
-    ), Tool(
-        name="search_f1_financial_regulations",
-        func=search_f1_financial_regulations,
-        description="MUST use for questions about car specifications, weight, tires, aerodynamics, chassis, "
-                    "power unit allocations, fuel systems, ERS components, cooling systems, transmission, "
-                    "and homologation requirements.",
-    ), Tool(
-        name="search_f1_technical_regulations",
-        func=search_f1_technical_regulations,
-        description="MUST use for questions about car design, materials, dimensions, weight distribution, power unit "
-                    "configuration, energy recovery systems (ERS), fuel and lubrication, suspension, aerodynamics, "
-                    "electronics, and homologation rules.",
-    )
-}
+tools = [search_sporting_regulations, search_f1_pu_financial_regulations, search_f1_financial_regulations, search_f1_technical_regulations]
 
 
 def build_agentic_rag():
@@ -123,7 +112,7 @@ def build_agentic_rag():
     )
 
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    agent = create_react_agent(llm, tools, prompt_template=prompt_template)
+    agent = create_react_agent(llm, tools, prompt_template)
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
     return agent_executor
