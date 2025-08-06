@@ -10,6 +10,7 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_openai import OpenAIEmbeddings
 from opensearchpy import OpenSearch, RequestsHttpConnection, helpers
 from langchain_community.vectorstores import OpenSearchVectorSearch
+from math import ceil
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 load_dotenv()
@@ -36,7 +37,7 @@ patterns = {
         "top_section": r"(?m)^ARTICLE\s+(\d+):\s+([A-Z][^\n]+)",
         "clause": r"(?m)^\s*({section_num}\.\d+)(?!\.\d)\s+[A-Z]",
         "sub_clause": r"(?m)^\s*({sub_section_num}\.\d+)\s+[A-Z]"},
-    "f1_practice_directions": {
+    "f1_practice_directions": { # Practice Directions는 default pattern으로 설정, but 실제로는 사용 X
         "top_section": r"(?m)^(?:\s*)?(\d+)\)\s+([A-Z][^\n]+)",
         "clause": r"(?m)^\s*({section_num}\.\d+)\s+[A-Z]"},
 }
@@ -66,7 +67,6 @@ def extract_text(pdf_path):  # PDF 텍스트 추출
 
 def extract_sections_from_text(text, top_section_pattern, clause_pattern_template):  # 목차 기반 섹션 분할
     # 상위 섹션: 예) 1. General Principles
-    # top_section_pattern = r"(?m)^\s*(\d+)\.\s+([A-Z][^\n]+)"
     top_sections = list(re.finditer(top_section_pattern, text))
 
     result = []
@@ -80,7 +80,6 @@ def extract_sections_from_text(text, top_section_pattern, clause_pattern_templat
         section_text = text[start:end]
 
         # 하위 조항 분리: ex. 4.1, 4.2, ...
-        # clause_pattern = rf"(?m)^\s*({section_num}\.\d+)\s+[A-Z]"  # 4.1 + 대문자로 시작하는 경우만 패턴으로 인식
         clause_pattern = clause_pattern_template.format(section_num=section_num)
         clause_matches = list(re.finditer(clause_pattern, section_text))
 
@@ -193,7 +192,6 @@ def create_documents(sections):  # LangChain Document 생성
 
 def store_to_opensearch(documents, index_name):  # Opensearch에 저장
     embeddings = OpenAIEmbeddings()
-    # index_name = "f1_sporting_regulations"  # Opensearch 인덱스 이름
 
     print("OpenSearch 연결 테스트 중...")
     print(opensearch_client.info())
@@ -212,45 +210,13 @@ def store_to_opensearch(documents, index_name):  # Opensearch에 저장
     )
 
     print("문서 벡터 저장 중...")
-    # vector_store.add_documents(documents)
 
-    # Langchain documents를 OpenSearch에 저장하기 위한 actions 생성
-    actions = []
-    for doc in documents:
-        actions.append({
-            "_op_type": "index",
-            "_index": vector_store.index_name,
-            "_source": {
-                **doc.metadata,
-                "text": doc.page_content
-            }
-        })
+    BULK_SIZE = int(os.getenv("BULK_SIZE", 300))  # 환경 변수로 설정된 경우, 기본값은 100
+    chunks = [documents[i:i + BULK_SIZE] for i in range(0, len(documents), BULK_SIZE)]
 
-    # parallel bulk 호출
-    success, failed = 0, 0
-    for ok, item in helpers.parallel_bulk(
-            client=vector_store.client,  # OpenSearch 클라이언트 인스턴스
-            actions=actions,
-            thread_count=4,  # 워커 스레드 수 (예: 4)
-            chunk_size=int(os.getenv("CHUNK_SIZE", 300)),  # 한 번에 보낼 도큐먼트 수 (기본값: 300, 환경 변수로 설정 가능)
-            request_timeout=60  # 타임아웃 여유 있게
-    ):
-        if ok:
-            success += 1
-        else:
-            failed += 1
-            logging.error(f"Failed to index document: {item}")
-
-    print(f"[✅] Indexed: {success}, Failed: {failed}")
-
-
-    # vector_store = OpenSearchVectorSearch.from_documents(
-    #     documents=documents,
-    #     embedding=embeddings,
-    #     opensearch_client=opensearch_client,
-    #     index_name=index_name,
-    #     engine="faiss"
-    # )
+    for i, chunk in enumerate(chunks):
+        print(f"[{i + 1}/{len(chunks)}] 인덱싱 중...")
+        vector_store.add_documents(chunk, bulk_size=BULK_SIZE, chunk_size=300)
 
     return vector_store
 
@@ -293,37 +259,38 @@ if __name__ == "__main__":
         full_text = extract_text(pdf_path)
 
         print("목차 기반 섹션 분할 중...")
-        if selected_pattern_key == "f1_technical_regulations":
-            # f1_technical_regulations 경우 2단계 조항까지 분리
-            level1_pattern = selected_patterns["clause"]
-            level2_pattern = selected_patterns["sub_clause"]
-            sections = extract_sections_from_text2(full_text,
-                                                   top_section_pattern_template=top_section_pattern,
-                                                   level1_pattern_template=level1_pattern,
-                                                   level2_pattern_template=level2_pattern)
-        elif selected_pattern_key == "f1_practice_directions":
+        if selected_pattern_key == "f1_practice_directions":
             continue  # Practice Directions는 제외
         else:
-            clause_pattern = selected_patterns["clause"]
-            sections = extract_sections_from_text(full_text,
-                                                  top_section_pattern=top_section_pattern,
-                                                  clause_pattern_template=clause_pattern)
+            if selected_pattern_key == "f1_technical_regulations":
+                # f1_technical_regulations 경우 2단계 조항까지 분리
+                level1_pattern = selected_patterns["clause"]
+                level2_pattern = selected_patterns["sub_clause"]
+                sections = extract_sections_from_text2(full_text,
+                                                       top_section_pattern_template=top_section_pattern,
+                                                       level1_pattern_template=level1_pattern,
+                                                       level2_pattern_template=level2_pattern)
+            else:
+                clause_pattern = selected_patterns["clause"]
+                sections = extract_sections_from_text(full_text,
+                                                      top_section_pattern=top_section_pattern,
+                                                      clause_pattern_template=clause_pattern)
 
-        print(f"총 {len(sections)}개 섹션 분할 완료.")
+            print(f"총 {len(sections)}개 섹션 분할 완료.")
 
-        all_sections.extend(sections)
+            all_sections.extend(sections)
 
-        base_filename = os.path.splitext(os.path.basename(pdf_path))[0]
-        output_json_path = f"sections_{base_filename}.json"
+            base_filename = os.path.splitext(os.path.basename(pdf_path))[0]
+            output_json_path = f"sections_{base_filename}.json"
 
-        # (선택) 중간 결과 JSON 저장
-        with open(output_json_path, "w", encoding="utf-8") as f:
-            json.dump(sections, f, indent=2, ensure_ascii=False)
+            # (선택) 중간 결과 JSON 저장
+            with open(output_json_path, "w", encoding="utf-8") as f:
+                json.dump(sections, f, indent=2, ensure_ascii=False)
 
-        print("문서 → LangChain Document 변환 중...")
-        documents = create_documents(sections)
+            print("문서 → LangChain Document 변환 중...")
+            documents = create_documents(sections)
 
-        print("Opensearch에 저장 중...")
-        store_to_opensearch(documents, selected_pattern_key)
+            print("Opensearch에 저장 중...")
+            store_to_opensearch(documents, selected_pattern_key)
 
-        print("저장 완료!")
+            print("저장 완료!")
